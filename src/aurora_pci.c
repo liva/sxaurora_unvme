@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <malloc.h>
+#include <string.h>
 #include <sys/mman.h>
 #include "aurora_pci.h"
 

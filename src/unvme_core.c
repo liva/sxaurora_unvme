@@ -41,6 +41,8 @@
 
 #include "rdtsc.h"
 #include "unvme_core.h"
+#include "aurora_pci.h"
+#include <err.h>
 
 /// IO descriptor debug print
 #define PDEBUG(fmt, arg...) //fprintf(stderr, fmt "\n", ##arg)

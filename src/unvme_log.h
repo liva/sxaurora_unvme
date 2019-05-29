@@ -40,6 +40,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+
+// for measure
+#include <assert.h>
 #include <time.h>
 
 __BEGIN_DECLS
@@ -48,10 +51,10 @@ extern struct timespec start, end;
 inline void start_measure() {
 	assert(measure_lock == 0);
 	measure_lock++;
-    gettimeofday(&start, NULL);
+    clock_gettime(CLOCK_REALTIME, &start);
 }
 inline void end_measure() {
-    gettimeofday(&end, NULL);
+    clock_gettime(CLOCK_REALTIME, &end);
     double time = end.tv_sec - start.tv_sec;
     time = (time * 1000 * 1000 * 1000 + (end.tv_nsec - start.tv_nsec)) / (1000 * 1000 * 1000);
     printf("elapsed time: %lfs\n", time);

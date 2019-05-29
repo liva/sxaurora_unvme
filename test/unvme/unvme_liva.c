@@ -151,9 +151,9 @@ int main(int argc, char** argv)
             for (i = 0; i < len; i += sizeof(u64)) *p++ = pat++;
         }
 
-        gettimeofday(&start, NULL);
+        clock_gettime(CLOCK_REALTIME, &start);
         int stat = unvme_write(ns, 0, buf, lba, nlb);
-        gettimeofday(&end, NULL);
+        clock_gettime(CLOCK_REALTIME, &end);
         if (stat) errx(1, "unvme_write failed: lba=%#lx nlb=%#x stat=%#x", lba, nlb, stat);
         double time = end.tv_sec - start.tv_sec;
         time = (time * 1000 * 1000 * 1000 + (end.tv_nsec - start.tv_nsec)) / (1000 * 1000 * 1000);
@@ -163,9 +163,9 @@ int main(int argc, char** argv)
         printf("RESULT: write: %lfMB/s\n", performance / 1024 / 1024);
     } else {
         printf("Read lba %#lx nlb %u\n", lba, nlb);
-        gettimeofday(&start, NULL);
+        clock_gettime(CLOCK_REALTIME, &start);
         stat = unvme_read(ns, 0, buf, lba, nlb);
-        gettimeofday(&end, NULL);
+        clock_gettime(CLOCK_REALTIME, &end);
         double time = end.tv_sec - start.tv_sec;
         time = (time * 1000 * 1000 * 1000 + (end.tv_nsec - start.tv_nsec)) / (1000 * 1000 * 1000);
         double performance = len / time;
