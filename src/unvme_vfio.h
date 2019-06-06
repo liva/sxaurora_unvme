@@ -64,9 +64,9 @@ typedef struct _vfio_device {
     int                     ext;        ///< externally allocated flag
 /*    __u64                   iovabase;   ///< IO virtual address base
     __u64                   iovanext;   ///< next IO virtual address to use
-    __u64                   iovamask;   ///< max IO virtual address mask
+    __u64                   iovamask;   ///< max IO virtual address mask*/
     pthread_mutex_t         lock;       ///< multithreaded lock
-    vfio_mem_t*             memlist;    ///< memory allocated list*/
+/*  vfio_mem_t*             memlist;    ///< memory allocated list*/
 } vfio_device_t;
 
 // Export functions

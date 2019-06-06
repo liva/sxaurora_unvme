@@ -82,9 +82,13 @@ vfio_device_t* vfio_create(vfio_device_t* dev, int pci)
     dev->pci = pci;
  /*   dev->pagesize = sysconf(_SC_PAGESIZE);
     dev->iovabase = VFIO_IOVA;
-    dev->iovanext = dev->iovabase;
+    dev->iovanext = dev->iovabase;*/
     if (pthread_mutex_init(&dev->lock, 0)) return NULL;
 
+    if (!aurora_init()) {
+        errx(1, "aurora_init");
+    }
+/*
     // map vfio context
     if ((dev->contfd = open("/dev/vfio/vfio", O_RDWR)) < 0)
         FATAL("open /dev/vfio/vfio");
@@ -232,8 +236,13 @@ void vfio_delete(vfio_device_t* dev)
         close(dev->groupfd);
         dev->groupfd = 0;
     }
-    
-    pthread_mutex_destroy(&dev->lock);*/
+    */
+
+    if (!aurora_release()) {
+        errx(1, "aurora_release");
+    }
+
+    pthread_mutex_destroy(&dev->lock);
     if (!dev->ext) free(dev);
 }
 
@@ -246,7 +255,10 @@ void vfio_delete(vfio_device_t* dev)
  */
 vfio_dma_t* vfio_dma_alloc(vfio_device_t* dev, size_t size)
 {
-    return aurora_mem_alloc(size);
+    pthread_mutex_lock(&dev->lock);
+    vfio_dma_t *mem = aurora_mem_alloc(size);
+    pthread_mutex_unlock(&dev->lock);
+    return mem;
 }
 
 /**
@@ -256,5 +268,6 @@ vfio_dma_t* vfio_dma_alloc(vfio_device_t* dev, size_t size)
  */
 int vfio_dma_free(vfio_dma_t* dma)
 {
+    free(dma);
     return 0;
 }

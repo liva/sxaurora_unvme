@@ -686,6 +686,7 @@ void nvme_delete(nvme_device_t* dev)
             ERROR("munmap: %s", strerror(errno));
         }
     }*/
+
     if (!dev->ext) free(dev);
 }
 

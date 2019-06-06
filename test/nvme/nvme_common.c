@@ -53,9 +53,6 @@ static vfio_dma_t* admincq;
 static void nvme_setup(const char* pciname, int aqsize)
 {
     int b, d, f;
-    if (!aurora_init()) {
-        errx(1, "aurora_init");
-    }
 
     if (sscanf(pciname, "%x:%x.%x", &b, &d, &f) != 3) {
         errx(1, "invalid PCI %s (expect %%x:%%x.%%x format)", pciname);
@@ -84,9 +81,6 @@ static void nvme_setup(const char* pciname, int aqsize)
  */
 static void nvme_cleanup()
 {
-    if (!aurora_release()) {
-        errx(1, "aurora_release");
-    }
     vfio_dma_free(adminsq);
     vfio_dma_free(admincq);
     nvme_delete(nvmedev);

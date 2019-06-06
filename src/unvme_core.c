@@ -489,9 +489,6 @@ unvme_ns_t* unvme_do_open(int pci, int nsid, int qcount, int qsize)
         // setup controller namespace
         dev = zalloc(sizeof(unvme_device_t));
 
-        if (!aurora_init()) {
-            errx(1, "aurora_init");
-        }
         vfio_create(&dev->vfiodev, pci);
         nvme_create(&dev->nvmedev, 0 /*dev->vfiodev.fd*/);
         unvme_adminq_create(dev, 64);
@@ -577,9 +574,6 @@ int unvme_do_close(const unvme_ns_t* ns)
     unvme_lockw(&unvme_lock);
     unvme_cleanup(ses);
     unvme_unlockw(&unvme_lock);
-    if (!aurora_release()) {
-        errx(1, "aurora_release");
-    }
     return 0;
 }
 

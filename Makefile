@@ -1,3 +1,7 @@
+include ./Makefile.def
+
+default: fio
+
 run: unvme
 	sudo ./unvme -h -r 0 -n 16384000 --qsize 16384 b3:00.0
 	sudo ./unvme -h -w 0 -n 16384000 -p 0x12345678 --qsize 16384 b3:00.0
@@ -22,17 +26,27 @@ run: unvme
 	sudo ./unvme -h -r 0 -n 16384000 --qsize 16 b3:00.0
 	sudo ./unvme -h -w 0 -n 16384000 -p 0x12345678 --qsize 16 b3:00.0
 
-fio:
-	make -C ioengine FIODIR=/home/sawamoto/fio
+.PHONY: src
 
-unvme: src/aurora_pci.c src/unvme_nvme.c src/unvme_vfio.c src/unvme_log.c src/unvme_core.c src/unvme.c test/unvme/unvme_liva.c
-	/opt/nec/ve/LLVM-VE-RV/bin/clang -fno-slp-vectorize -mllvm -llvm-loopvec=false -Xclang -load -Xclang libRV.so -mllvm -rv --target=ve-linux --std=gnu99 -Isrc -lsysve -o $@ $^
+src:
+	make -C $@
+
+fio: src
+	make -C ioengine
+	sudo test/unvme-benchmark b3:00.0
+
+fio2: src
+	make -C ioengine
+	sudo /opt/nec/ve/bin/gdb --args /home/sawamoto/fio_ve/fio /home/sawamoto/vepci/test/out/unvme-randread-01-04.fio
+
+unvme: src test/unvme/unvme_liva.c
+	$(CC) $(CFLAGS) -o $@ test/unvme/unvme_liva.c src/libunvme.a
 
 vepci: test.c
 	/opt/nec/ve/bin/ncc -o $@ $^
 
 clean:
-	-rm unvme
+	-rm unvme src/*.o src/*.a ioengine/*.o ioengine/unvme_fio
 
 uio:
 	echo '0000:b3:00.0' | sudo tee /sys/bus/pci/drivers/nvme/unbind
