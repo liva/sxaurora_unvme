@@ -31,172 +31,446 @@
 
 /**
  * @file
- * @brief UNVMe write-read a specific address.
+ * @brief UNVMe API test.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <time.h>
 #include <ctype.h>
-#include <err.h>
 #include <time.h>
-#include <getopt.h>
+#include <err.h>
+#include <fcntl.h>
+#include <veaio.h>
 
 #include "unvme.h"
 
+/// Print if verbose flag is set
+#define VERBOSE(fmt, arg...) if (verbose) printf(fmt, ##arg)
 
+
+/**
+ * Read tsc.
+ * @return  tsc value.
+ */
+static inline uint64_t rdtsc(void)
+{
+  uint64_t ret;
+  void *vehva = ((void *)0x000000001000);
+  asm volatile("lhm.l %0,0(%1)":"=r"(ret):"r"(vehva));
+  // the "800" is due to the base frequency of Tsubasa
+  return ((uint64_t)1000 * ret) / 800;
+}
+
+/**
+ * Get tsc per second using sleeping for 1/100th of a second.
+ */
+static inline uint64_t rdtsc_second()
+{
+    static uint64_t tsc_ps = 0;
+    if (!tsc_ps) {
+        uint64_t t0 = rdtsc();
+        usleep(1000);
+        uint64_t t1 = rdtsc();
+        usleep(1000);
+        uint64_t t2 = rdtsc();
+        t2 -= t1;
+        t1 -= t0;
+        if (t2 > t1) t2 = t1;
+        tsc_ps = t2 * 1000;
+    }
+    return tsc_ps;
+}
+
+void vepci(char *pciname, int ratio, int verbose);
+void aio(char *pciname, int ratio, int verbose);
+
+/**
+ * Main.
+ */
 int main(int argc, char** argv)
 {
-    const char* usage = "Usage: %s -w|-r LBA [OPTIONS]... PCINAME\n\
-           -w|-r    LBA        write|read at LBA\n\
-           -n       BLOCKCOUNT number of blocks (default 8)\n\
-           -p       PATTERN    64-bit data pattern to write (default random)\n\
-           --qsize  QSIZE      set queue size\n\
-           --qcount QCOUNT     set queue count\n\
-           -h                  hide outputs of data\n\
-           PCINAME             PCI device name (as 02:00.0[/1] format)\n\n\
-           (either -w or -r must be specified)\n";
+    const char* usage = "Usage: %s [OPTION]... PCINAME\n\
+           -a         aio\n\
+           -v         verbose\n\
+           -r RATIO   max blocks per I/O ratio (default 4)\n\
+           PCINAME    PCI device name (as 01:00.0[/1] format)";
 
-    struct timespec start, end; 
-
+    int opt, ratio=4, verbose=0, aio_flag = 0;
     const char* prog = strrchr(argv[0], '/');
     prog = prog ? prog + 1 : argv[0];
-    int opt;
-    int rw = 0;
-    u64 lba = 0L;
-    u32 nlb = 8;
-    u64 pat = 0L;
-    int rnd = 1;
-    int qsize = 0;
-    int qcount = 0;
-    int hidden = 0;
 
-    int flag = 0;
-    const struct option longopts[] = {
-      //{    *name,           has_arg, *flag, val },
-      //  {  "create",       no_argument,     0, 'c' },
-      //  {  "delete", required_argument,     0, 'd' },
-      //  { "setflag",       no_argument, &flag,  1  },
-      //  { "clrflag",       no_argument, &flag,  0  },
-        {    "qsize", required_argument, &flag,  1  },
-        {   "qcount", required_argument, &flag,  2  },
-        {         0,                 0,      0,  0  }, // termination
-    };
-
-    while ((opt = getopt_long(argc, argv, "w:r:n:p:h", longopts, NULL)) != -1) {
+    while ((opt = getopt(argc, argv, "r:va")) != -1) {
         switch (opt) {
-        case 0:
-            switch(flag) {
-                case 1:
-                    qsize = strtoul(optarg, 0, 0);;
-                    break;
-                case 2:
-                    qcount = strtoul(optarg, 0, 0);;
-                    break;
-                default:
-                    warnx(usage, prog);
-                    exit(1);
-            }
-            break;
-        case 'w':
         case 'r':
-            rw = opt;
-            lba = strtoull(optarg, 0, 0);
+            ratio = strtol(optarg, 0, 0);
+            if (ratio <= 0) errx(1, "r must be > 0");
             break;
-        case 'n':
-            nlb = strtoul(optarg, 0, 0);
+        case 'v':
+            verbose = 1;
             break;
-        case 'p':
-            pat = strtoull(optarg, 0, 0);
-            rnd = 0;
-            break;
-        case 'h':
-            hidden = 1;
+        case 'a':
+            aio_flag = 1;
             break;
         default:
             warnx(usage, prog);
             exit(1);
         }
     }
-
-    if ((rw == 0) || (optind + 1) != argc) {
+    if ((optind + 1) != argc) {
         warnx(usage, prog);
         exit(1);
     }
     char* pciname = argv[optind];
 
-    const unvme_ns_t* ns = unvme_openq(pciname, qcount, qsize);
-    if (!ns) exit(1);
-    printf("%s qc=%d/%d qs=%d/%d bc=%#lx bs=%d\n",
-            ns->device, ns->qcount, ns->maxqcount, ns->qsize, ns->maxqsize,
-            ns->blockcount, ns->blocksize);
-
-    int stat;
-    u64 i, len = nlb;
-    len *= ns->blocksize;
-    void* buf = unvme_alloc(ns, len);
-    if (!buf) errx(1, "unvme_alloc %lu failed", len);
-
-    if (rw == 'w') {
-        if (rnd) {
-            srandom(time(NULL));
-            u32* p = buf;
-            for (i = 0; i < len; i += sizeof(u32)) *p++ = random();
-            printf("Write random pattern at lba %#lx nlb %u\n", lba, nlb);
-        } else {
-            u64* p = buf;
-            printf("Write pattern %#016lx at lba %#lx nlb %u\n", pat, lba, nlb);
-            for (i = 0; i < len; i += sizeof(u64)) *p++ = pat++;
-        }
-
-        clock_gettime(CLOCK_REALTIME, &start);
-        int stat = unvme_write(ns, 0, buf, lba, nlb);
-        clock_gettime(CLOCK_REALTIME, &end);
-        if (stat) errx(1, "unvme_write failed: lba=%#lx nlb=%#x stat=%#x", lba, nlb, stat);
-        double time = end.tv_sec - start.tv_sec;
-        time = (time * 1000 * 1000 * 1000 + (end.tv_nsec - start.tv_nsec)) / (1000 * 1000 * 1000);
-        double performance = len / time;
-        printf("elapsed time: %lfs\n", time);
-        printf("RESULT: qsize=%d\n", qsize);
-        printf("RESULT: write: %lfMB/s\n", performance / 1024 / 1024);
+    if (aio_flag == 0) {
+        vepci(pciname, ratio, verbose);
     } else {
-        printf("Read lba %#lx nlb %u\n", lba, nlb);
-        clock_gettime(CLOCK_REALTIME, &start);
-        stat = unvme_read(ns, 0, buf, lba, nlb);
-        clock_gettime(CLOCK_REALTIME, &end);
-        double time = end.tv_sec - start.tv_sec;
-        time = (time * 1000 * 1000 * 1000 + (end.tv_nsec - start.tv_nsec)) / (1000 * 1000 * 1000);
-        double performance = len / time;
-        printf("elapsed time: %lfs\n", time);
-        printf("RESULT: qsize=%d\n", qsize);
-        printf("RESULT: read: %lfMB/s\n", performance / 1024 / 1024);
-        if (stat) errx(1, "unvme_read failed: lba=%#lx nlb=%#x stat=%#x", lba, nlb, stat);
-
-        if (!hidden) {
-            int skip = 0;
-            u64* p = buf;
-            u64 w0 = ~*p, w1 = 0, w2 = 0, w3 = 0;
-            for (i = 0; i < len; i += 32) {
-                if (p[0] != w0 || p[1] != w1 || p[2] != w2 || p[3] != w3) {
-                    printf("%08lx: %016lx %016lx %016lx %016lx\n", i, p[0], p[1], p[2], p[3]);
-                    skip = 0;
-                } else if (!skip) {
-                    printf("*\n");
-                    skip = 1;
-                }
-                w0 = p[0];
-                w1 = p[1];
-                w2 = p[2];
-                w3 = p[3];
-                p += 4;
-            }
-        }
+        aio(pciname, ratio, verbose);
     }
 
-    unvme_free(ns, buf);
-    unvme_close(ns);
     return 0;
 }
 
+#define LOOPNUM 100
+#define NLB 2
+
+void vepci(char *pciname, int ratio, int verbose) {
+    printf("API TEST BEGIN\n");
+    const unvme_ns_t* ns = unvme_open(pciname);
+    if (!ns) exit(1);
+
+    // set large number of I/O and size
+    int maxnlb = ratio * ns->maxbpio;
+    int iocount = ratio * (ns->qsize - 1);
+
+    printf("%s qc=%d/%d qs=%d/%d bc=%#lx bs=%d maxnlb=%d/%d\n",
+            ns->device, ns->qcount, ns->maxqcount, ns->qsize, ns->maxqsize,
+            ns->blockcount, ns->blocksize, maxnlb, ns->maxbpio);
+
+    int q, i;
+    int j;
+    u64 slba, size, w, *p;
+    unvme_iod_t* iod = malloc(iocount * sizeof(unvme_iod_t));
+    void** buf = malloc(iocount * sizeof(void*));
+
+    q = 0;
+    printf("> Test q=%d ioc=%d\n", q, iocount);
+
+    printf("Test alloc\n");
+    for (i = 0; i < iocount; i++) {
+        size = NLB * ns->blocksize;
+        VERBOSE("  alloc.%-2d  %#8x %#lx\n", i, NLB, size);
+        if (!(buf[i] = unvme_alloc(ns, size)))
+            errx(1, "alloc.%d failed", i);
+    }
+
+    printf("Test awrite\n");
+    uint64_t t1 = rdtsc();
+    for(j = 0; j < LOOPNUM; j++) {
+        slba = 0;
+        for (i = 0; i < iocount; i++) {
+            size = NLB * ns->blocksize / sizeof(u64);
+            p = buf[i];
+            for (w = 0; w < size; w++) p[w] = (w << 32) + i;
+            VERBOSE("  awrite.%-2d %#8x %p %#lx\n", i, NLB, p, slba);
+            if (!(iod[i] = unvme_awrite(ns, q, p, slba, NLB)))
+                errx(1, "awrite.%d failed", i);
+            slba += NLB;
+        }
+
+        for (i = iocount-1; i >= 0; i--) {
+            VERBOSE("  apoll.awrite.%-2d\n", i);
+            if (unvme_apoll(iod[i], UNVME_TIMEOUT))
+                errx(1, "apoll_awrite.%d failed", i);
+        }
+    }
+    uint64_t t2 = rdtsc();
+
+    printf("Test aread\n");
+    uint64_t t3 = rdtsc();
+    for(j = 0; j < 100; j++) {
+        slba = 0;
+        for (i = 0; i < iocount; i++) {
+            size = NLB * ns->blocksize;
+            p = buf[i];
+            bzero(p, size);
+            VERBOSE("  aread.%-2d  %#8x %p %#lx\n", i, NLB, p, slba);
+            if (!(iod[i] = unvme_aread(ns, q, p, slba, NLB)))
+                errx(1, "aread.%d failed", i);
+            slba += NLB;
+        }
+
+        for (i = iocount-1; i >= 0; i--) {
+            VERBOSE("  apoll.aread.%-2d\n", i);
+            if (unvme_apoll(iod[i], UNVME_TIMEOUT))
+                errx(1, "apoll_aread.%d failed", i);
+        }
+    }
+    uint64_t t4 = rdtsc();
+
+    printf("Test verify\n");
+    slba = 0;
+    for (i = 0; i < iocount; i++) {
+        size = NLB * ns->blocksize / sizeof(u64);
+        p = buf[i];
+        VERBOSE("  verify.%-2d %#8x %p %#lx\n", i, NLB, p, slba);
+        for (w = 0; w < size; w++) {
+            if (p[w] != ((w << 32) + i)) {
+                w *= sizeof(w);
+                slba += w / ns->blocksize;
+                w %= ns->blocksize;
+                errx(1, "miscompare at lba %#lx offset %#lx", slba, p);
+            }
+        }
+        slba += NLB;
+    }
+
+    printf("Test free\n");
+    for (i = 0; i < iocount; i++) {
+        VERBOSE("  free.%-2d\n", i);
+        if (unvme_free(ns, buf[i]))
+            errx(1, "free.%d failed", i);
+    }
+
+    free(buf);
+    free(iod);
+    unvme_close(ns);
+
+    printf("API TEST COMPLETE (%ld clock)\n", t4 - t3 + t2 - t1);
+}
+
+void aio(char *pciname, int ratio, int verbose) {
+    printf("API TEST BEGIN\n");
+    int fd = open(pciname, O_RDWR|O_CREAT, S_IRWXU);
+	if (fd == -1) {
+		perror("open");
+		exit(1);
+	}
+    int qsize = 256;
+    int blocksize = 512;
+
+    // set large number of I/O and size
+    int iocount = ratio * (qsize - 1);
+
+    printf("%s qc=%d/%d qs=%d/%d bc=%#lx bs=%d maxnlb=%d/%d\n",
+            pciname, 32, 32, 256, 0,
+            0, blocksize, 0, 0);
+
+    int q, i;
+    int j;
+    ssize_t retval;
+    int errnoval;
+    u64 slba, size, w, *p;
+    struct ve_aio_ctx** ctx = malloc(iocount * sizeof(struct ve_aio_ctx *));
+    void** buf = malloc(iocount * sizeof(void*));
+
+
+    q = 0;
+    printf("> Test q=%d ioc=%d\n", q, iocount);
+
+    printf("Test alloc\n");
+    for (i = 0; i < iocount; i++) {
+        size = NLB * blocksize;
+        VERBOSE("  alloc.%-2d  %#8x %#lx\n", i, NLB, size);
+            
+        if (!(buf[i] = malloc(size)))
+            errx(1, "alloc.%d failed", i);
+
+        if (!(ctx[i] = ve_aio_init()))
+            errx(1, "alloc.%d failed", i);
+    }
+
+    printf("Test awrite\n");
+    uint64_t t1 = rdtsc();
+    for(j = 0; j < LOOPNUM; j++) {
+        slba = 0;
+        for (i = 0; i < iocount; i++) {
+            size = NLB * blocksize / sizeof(u64);
+            p = buf[i];
+            for (w = 0; w < size; w++) p[w] = (w << 32) + i;
+            VERBOSE("  awrite.%-2d %#8x %p %#lx\n", i, NLB, p, slba);
+            if (ve_aio_write(ctx[i], fd, NLB * blocksize, buf[i], slba * blocksize))
+                errx(1, "awrite.%d failed", i);
+            slba += NLB;
+        }
+
+        for (i = iocount-1; i >= 0; i--) {
+            VERBOSE("  apoll.awrite.%-2d\n", i);
+            if (ve_aio_wait(ctx[i], &retval, &errnoval))
+                errx(1, "apoll_awrite.%d failed", i);
+        }
+    }
+    uint64_t t2 = rdtsc();
+
+    printf("Test aread\n");
+    uint64_t t3 = rdtsc();
+    for(j = 0; j < 100; j++) {
+        slba = 0;
+        for (i = 0; i < iocount; i++) {
+            size = NLB * blocksize;
+            p = buf[i];
+            bzero(p, size);
+            VERBOSE("  aread.%-2d  %#8x %p %#lx\n", i, NLB, p, slba);
+            if (ve_aio_read(ctx[i], fd, NLB * blocksize, buf[i], slba * blocksize))
+                errx(1, "aread.%d failed", i);
+            slba += NLB;
+        }
+
+        for (i = iocount-1; i >= 0; i--) {
+            VERBOSE("  apoll.aread.%-2d\n", i);
+            if (ve_aio_wait(ctx[i], &retval, &errnoval))
+                errx(1, "apoll_aread.%d failed", i);
+        }
+    }
+    uint64_t t4 = rdtsc();
+
+    printf("Test verify\n");
+    slba = 0;
+    for (i = 0; i < iocount; i++) {
+        size = NLB * blocksize / sizeof(u64);
+        p = buf[i];
+        VERBOSE("  verify.%-2d %#8x %p %#lx\n", i, NLB, p, slba);
+        for (w = 0; w < size; w++) {
+            if (p[w] != ((w << 32) + i)) {
+                w *= sizeof(w);
+                slba += w / blocksize;
+                w %= blocksize;
+                errx(1, "miscompare at lba %#lx offset %#lx", slba, p);
+            }
+        }
+        slba += NLB;
+    }
+
+    printf("Test free\n");
+    for (i = 0; i < iocount; i++) {
+        VERBOSE("  free.%-2d\n", i);
+        free(buf[i]);
+
+        if (ve_aio_fini(ctx[i]))
+            errx(1, "free.%d failed", i);
+    }
+
+    free(buf);
+    free(ctx);
+
+    printf("API TEST COMPLETE (%ld clock)\n", t4 - t3 + t2 - t1);
+}
+
+void posix(char *pciname, int ratio, int verbose) {
+    printf("API TEST BEGIN\n");
+    int fd = open(pciname, O_RDWR|O_CREAT, S_IRWXU);
+	if (fd == -1) {
+		perror("open");
+		exit(1);
+	}
+    int qsize = 256;
+    int blocksize = 512;
+
+    // set large number of I/O and size
+    int iocount = ratio * (qsize - 1);
+
+    printf("%s qc=%d/%d qs=%d/%d bc=%#lx bs=%d maxnlb=%d/%d\n",
+            pciname, 32, 32, 256, 0,
+            0, blocksize, 0, 0);
+
+    int q, i;
+    int j;
+    ssize_t retval;
+    int errnoval;
+    u64 slba, size, w, *p;
+    struct ve_aio_ctx** ctx = malloc(iocount * sizeof(struct ve_aio_ctx *));
+    void** buf = malloc(iocount * sizeof(void*));
+
+
+    q = 0;
+    printf("> Test q=%d ioc=%d\n", q, iocount);
+
+    printf("Test alloc\n");
+    for (i = 0; i < iocount; i++) {
+        size = NLB * blocksize;
+        VERBOSE("  alloc.%-2d  %#8x %#lx\n", i, NLB, size);
+            
+        if (!(buf[i] = malloc(size)))
+            errx(1, "alloc.%d failed", i);
+
+        if (!(ctx[i] = ve_aio_init()))
+            errx(1, "alloc.%d failed", i);
+    }
+
+    printf("Test awrite\n");
+    uint64_t t1 = rdtsc();
+    for(j = 0; j < LOOPNUM; j++) {
+        slba = 0;
+        for (i = 0; i < iocount; i++) {
+            size = NLB * blocksize / sizeof(u64);
+            p = buf[i];
+            for (w = 0; w < size; w++) p[w] = (w << 32) + i;
+            VERBOSE("  awrite.%-2d %#8x %p %#lx\n", i, NLB, p, slba);
+            if (ve_aio_write(ctx[i], fd, NLB * blocksize, buf[i], slba * blocksize))
+                errx(1, "awrite.%d failed", i);
+            slba += NLB;
+        }
+
+        for (i = iocount-1; i >= 0; i--) {
+            VERBOSE("  apoll.awrite.%-2d\n", i);
+            if (ve_aio_wait(ctx[i], &retval, &errnoval))
+                errx(1, "apoll_awrite.%d failed", i);
+        }
+    }
+    uint64_t t2 = rdtsc();
+
+    printf("Test aread\n");
+    uint64_t t3 = rdtsc();
+    for(j = 0; j < 100; j++) {
+        slba = 0;
+        for (i = 0; i < iocount; i++) {
+            size = NLB * blocksize;
+            p = buf[i];
+            bzero(p, size);
+            VERBOSE("  aread.%-2d  %#8x %p %#lx\n", i, NLB, p, slba);
+            if (ve_aio_read(ctx[i], fd, NLB * blocksize, buf[i], slba * blocksize))
+                errx(1, "aread.%d failed", i);
+            slba += NLB;
+        }
+
+        for (i = iocount-1; i >= 0; i--) {
+            VERBOSE("  apoll.aread.%-2d\n", i);
+            if (ve_aio_wait(ctx[i], &retval, &errnoval))
+                errx(1, "apoll_aread.%d failed", i);
+        }
+    }
+    uint64_t t4 = rdtsc();
+
+    printf("Test verify\n");
+    slba = 0;
+    for (i = 0; i < iocount; i++) {
+        size = NLB * blocksize / sizeof(u64);
+        p = buf[i];
+        VERBOSE("  verify.%-2d %#8x %p %#lx\n", i, NLB, p, slba);
+        for (w = 0; w < size; w++) {
+            if (p[w] != ((w << 32) + i)) {
+                w *= sizeof(w);
+                slba += w / blocksize;
+                w %= blocksize;
+                errx(1, "miscompare at lba %#lx offset %#lx", slba, p);
+            }
+        }
+        slba += NLB;
+    }
+
+    printf("Test free\n");
+    for (i = 0; i < iocount; i++) {
+        VERBOSE("  free.%-2d\n", i);
+        free(buf[i]);
+
+        if (ve_aio_fini(ctx[i]))
+            errx(1, "free.%d failed", i);
+    }
+
+    free(buf);
+    free(ctx);
+
+    printf("API TEST COMPLETE (%ld clock)\n", t4 - t3 + t2 - t1);
+}

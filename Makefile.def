@@ -50,5 +50,5 @@ LDFLAGS=-fno-slp-vectorize -mllvm -llvm-loopvec=false -Xclang -load -Xclang libR
 #CPPFLAGS+=-DUNVME_IDENTITY_MAP_DMA
 
 # To build the ioengine modules, specify fio directory where header files are
-FIODIR:=/home/sawamoto/fio_ve
+FIODIR:=/home/sawamoto/fio_x86
 

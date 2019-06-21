@@ -58,12 +58,11 @@ static inline uint64_t rdtsc(void)
     } tsc;
     asm volatile ("rdtsc" : "=a" (tsc.lo), "=d" (tsc.hi));
     return tsc.val;*/
-  struct timespec ts;
-  clock_gettime(CLOCK_REALTIME, &ts);
-  uint64_t val = ts.tv_sec;
-  val *= 1000000000;
-  val += ts.tv_nsec;
-  return val;
+  uint64_t ret;
+  void *vehva = ((void *)0x000000001000);
+  asm volatile("lhm.l %0,0(%1)":"=r"(ret):"r"(vehva));
+  // the "800" is due to the base frequency of Tsubasa
+  return ((uint64_t)1000 * ret) / 800;
 }
 
 /**

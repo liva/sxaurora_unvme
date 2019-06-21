@@ -32,12 +32,15 @@ iodepth=IODEPTH"
 
 : ${FIODIR=$(grep '^FIODIR' ../Makefile.def | sed 's/.*=\s*//')}
 : ${RW="randwrite randread"}
-: ${NUMJOBS="16"}
+: ${NUMJOBS="8"}
 : ${IODEPTH="16"}
-: ${RAMPTIME=30}
-: ${RUNTIME=60}
+: ${RAMPTIME=0}
+: ${RUNTIME=10}
 : ${BLOCKSIZE="4096 33554432"}
 : ${IOENGINE=""}
+#: ${RAMPTIME=30}
+#: ${NUMJOBS="16"}
+#: ${RUNTIME=60}
 #: ${NUMJOBS="01 04 08 16"}
 #: ${IODEPTH="01 04 08 16"}
 #: ${BLOCKSIZE=4096}

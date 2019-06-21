@@ -2,7 +2,7 @@ include ./Makefile.def
 
 default: fio
 
-run: unvme
+old_run: unvme
 	sudo ./unvme -h -r 0 -n 16384000 --qsize 16384 b3:00.0
 	sudo ./unvme -h -w 0 -n 16384000 -p 0x12345678 --qsize 16384 b3:00.0
 	sudo ./unvme -h -r 0 -n 16384000 --qsize 8192 b3:00.0
@@ -40,7 +40,7 @@ fio2: src
 	sudo /opt/nec/ve/bin/gdb --args /home/sawamoto/fio_ve/fio /home/sawamoto/vepci/test/out/unvme-randread-01-04.fio
 
 unvme: src test/unvme/unvme_liva.c
-	$(CC) $(CFLAGS) -o $@ test/unvme/unvme_liva.c src/libunvme.a
+	$(CC) $(CFLAGS) -o $@ test/unvme/unvme_liva.c src/libunvme.a -lveio -pthread
 
 vepci: test.c
 	/opt/nec/ve/bin/ncc -o $@ $^
