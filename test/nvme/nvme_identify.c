@@ -36,14 +36,12 @@
 
 #include "nvme_common.c"
 
-
-
 /**
  * Print controller info.
  */
-void print_controller(void* buf)
+void print_controller(void *buf)
 {
-    nvme_identify_ctlr_t* ctlr = buf;
+    nvme_identify_ctlr_t *ctlr = buf;
 
     printf("Identify Controller 0x0\n");
     printf("=======================\n");
@@ -79,9 +77,9 @@ void print_controller(void* buf)
 /**
  * Print namespace info.
  */
-void print_namespace(void* buf, int nsid)
+void print_namespace(void *buf, int nsid)
 {
-    nvme_identify_ns_t* ns = buf;
+    nvme_identify_ns_t *ns = buf;
 
     printf("\nIdentify Namespace %#x\n", nsid);
     printf("======================\n");
@@ -96,7 +94,8 @@ void print_namespace(void* buf, int nsid)
     printf("dps      : %#x\n", ns->dps);
 
     int i;
-    for (i = 0; i <= ns->nlbaf; i++) {
+    for (i = 0; i <= ns->nlbaf; i++)
+    {
         printf("lbaf.%-3d : ms=%-3d lbads=%-3d rp=%-2d %s\n",
                i, ns->lbaf[i].ms, ns->lbaf[i].lbads, ns->lbaf[i].rp,
                (ns->flbas & 0xf) == i ? "(formatted)" : "");
@@ -106,31 +105,35 @@ void print_namespace(void* buf, int nsid)
 /**
  * Main program.
  */
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     int nsid = 0;
 
-    nvme_setup(NULL, 8);
-    vfio_dma_t* dma = vfio_dma_alloc(vfiodev, 16384);
-    if (!dma) errx(1, "vfio_dma_alloc");
+    nvme_setup(argv[1], 8);
+    vfio_dma_t *dma = vfio_dma_alloc(vfiodev, 16384);
+    if (!dma)
+        errx(1, "vfio_dma_alloc");
 
     if (nvme_acmd_identify(nvmedev, 0, dma->addr, dma->addr + 4096))
         errx(1, "nvme_acmd_identify 0");
-    nvme_identify_ctlr_t* ctlr = dma->buf;
+    nvme_identify_ctlr_t *ctlr = dma->buf;
     print_controller(ctlr);
 
-
     u64 nsaddr = dma->addr + 8192;
-    void* nsbuf = dma->buf + 8192;
+    void *nsbuf = dma->buf + 8192;
 
-    if (nsid) {
+    if (nsid)
+    {
         if (nsid > ctlr->nn)
             errx(1, "invalid nsid %d", nsid);
         if (nvme_acmd_identify(nvmedev, nsid, nsaddr, nsaddr + 4096))
             errx(1, "nvme_acmd_identify %d", nsid);
         print_namespace(nsbuf, nsid);
-    } else {
-        for (nsid = 1; nsid <= ctlr->nn; nsid++) {
+    }
+    else
+    {
+        for (nsid = 1; nsid <= ctlr->nn; nsid++)
+        {
             if (nvme_acmd_identify(nvmedev, nsid, nsaddr, nsaddr + 4096))
                 errx(1, "nvme_acmd_identify %d", nsid);
             print_namespace(nsbuf, nsid);

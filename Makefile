@@ -42,6 +42,9 @@ fio2: src
 unvme: src test/unvme/unvme_liva.c
 	$(CC) $(CFLAGS) -o $@ test/unvme/unvme_liva.c src/libunvme.a -lveio -pthread
 
+unvme2: src test/nvme/nvme_identify.c
+	$(CC) $(CFLAGS) -o $@ test/nvme/nvme_identify.c src/libunvme.a -lveio -pthread
+
 vepci: test.c
 	/opt/nec/ve/bin/ncc -o $@ $^
 
