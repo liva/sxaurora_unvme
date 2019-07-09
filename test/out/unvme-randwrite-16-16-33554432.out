@@ -1,0 +1,41 @@
+# /bin/uname -a (Thu 06/06/19 05:13:46 PM)
+Linux aurora6 3.10.0-957.5.1.el7.x86_64 #1 SMP Fri Feb 1 14:54:57 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+
+# cat /home/sawamoto/vepci/test/out/unvme-randwrite-16-16-33554432.fio (Thu 06/06/19 05:13:46 PM)
+[global]
+norandommap=1
+thread=1
+group_reporting=1
+direct=1
+verify=0
+ioengine=/home/sawamoto/vepci/ioengine/unvme_fio
+time_based=1
+ramp_time=30
+runtime=60
+bs=33554432
+filename=b3.00.0
+
+[test]
+rw=randwrite
+numjobs=16
+iodepth=16
+
+
+========
+
+# /usr/bin/free -h (Thu 06/06/19 05:13:46 PM)
+              total        used        free      shared  buff/cache   available
+Mem:            93G        2.5G         79G         34M         10G         89G
+Swap:          4.0G          0B        4.0G
+
+
+========
+
+# /home/sawamoto/fio_ve/fio /home/sawamoto/vepci/test/out/unvme-randwrite-16-16-33554432.fio (Thu 06/06/19 05:13:46 PM)
+test: (g=0): rw=randwrite, bs=(R) 32.0MiB-32.0MiB, (W) 32.0MiB-32.0MiB, (T) 32.0MiB-32.0MiB, ioengine=unvme, iodepth=16
+...
+fio-2.19-dirty
+Starting 16 threads
+aurora_init: 0x7fa000000000-0x7fa400000000
+aurora_map: 0x70000000000-0x70004000000
+unvme_open b3:00.0/1 q=32x256 ncpus=8

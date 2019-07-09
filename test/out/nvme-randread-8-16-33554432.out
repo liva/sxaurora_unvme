@@ -1,0 +1,71 @@
+# /bin/uname -a (Thu 06/06/19 06:01:49 PM)
+Linux aurora6 3.10.0-957.5.1.el7.x86_64 #1 SMP Fri Feb 1 14:54:57 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+
+# cat /home/sawamoto/vepci/test/out/nvme-randread-8-16-33554432.fio (Thu 06/06/19 06:01:49 PM)
+[global]
+norandommap=1
+thread=1
+group_reporting=1
+direct=1
+verify=0
+ioengine=psync
+time_based=1
+ramp_time=0
+runtime=10
+bs=33554432
+filename=/dev/nvme0n1
+
+[test]
+rw=randread
+numjobs=8
+iodepth=16
+
+
+========
+
+# /usr/bin/free -h (Thu 06/06/19 06:01:49 PM)
+              total        used        free      shared  buff/cache   available
+Mem:            93G        2.6G         79G         42M         10G         89G
+Swap:          4.0G          0B        4.0G
+
+
+========
+
+# /home/sawamoto/fio_x86/fio /home/sawamoto/vepci/test/out/nvme-randread-8-16-33554432.fio (Thu 06/06/19 06:01:49 PM)
+test: (g=0): rw=randread, bs=(R) 32.0MiB-32.0MiB, (W) 32.0MiB-32.0MiB, (T) 32.0MiB-32.0MiB, ioengine=psync, iodepth=16
+...
+fio-2.19
+Starting 8 threads
+
+test: (groupid=0, jobs=8): err= 0: pid=247712: Thu Jun  6 18:02:00 2019
+   read: IOPS=73, BW=2360MiB/s (2474MB/s)(23.2GiB/10063msec)
+    clat (msec): min=51, max=214, avg=108.16, stdev=36.88
+     lat (msec): min=51, max=214, avg=108.16, stdev=36.88
+    clat percentiles (msec):
+     |  1.00th=[   57],  5.00th=[   60], 10.00th=[   65], 20.00th=[   73],
+     | 30.00th=[   80], 40.00th=[   91], 50.00th=[  108], 60.00th=[  119],
+     | 70.00th=[  131], 80.00th=[  135], 90.00th=[  163], 95.00th=[  178],
+     | 99.00th=[  200], 99.50th=[  208], 99.90th=[  215], 99.95th=[  215],
+     | 99.99th=[  215]
+    lat (msec) : 100=46.77%, 250=53.23%
+  cpu          : usr=0.00%, sys=6.96%, ctx=1706, majf=0, minf=141
+  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwt: total=742,0,0, short=0,0,0, dropped=0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=16
+
+Run status group 0 (all jobs):
+   READ: bw=2360MiB/s (2474MB/s), 2360MiB/s-2360MiB/s (2474MB/s-2474MB/s), io=23.2GiB (24.9GB), run=10063-10063msec
+
+Disk stats (read/write):
+  nvme0n1: ios=46745/0, merge=0/0, ticks=3294041/0, in_queue=3309673, util=99.01%
+
+
+========
+
+# /usr/bin/free -h (Thu 06/06/19 06:02:00 PM)
+              total        used        free      shared  buff/cache   available
+Mem:            93G        2.6G         79G         42M         10G         89G
+Swap:          4.0G          0B        4.0G
+

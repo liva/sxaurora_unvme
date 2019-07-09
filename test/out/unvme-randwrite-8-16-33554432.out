@@ -1,0 +1,77 @@
+# /bin/uname -a (Thu 06/06/19 05:57:14 PM)
+Linux aurora6 3.10.0-957.5.1.el7.x86_64 #1 SMP Fri Feb 1 14:54:57 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+
+# cat /home/sawamoto/vepci/test/out/unvme-randwrite-8-16-33554432.fio (Thu 06/06/19 05:57:14 PM)
+[global]
+norandommap=1
+thread=1
+group_reporting=1
+direct=1
+verify=0
+ioengine=/home/sawamoto/vepci/ioengine/unvme_fio
+time_based=1
+ramp_time=0
+runtime=10
+bs=33554432
+filename=b3.00.0
+
+[test]
+rw=randwrite
+numjobs=8
+iodepth=16
+
+
+========
+
+# /usr/bin/free -h (Thu 06/06/19 05:57:14 PM)
+              total        used        free      shared  buff/cache   available
+Mem:            93G        2.6G         79G         42M         10G         89G
+Swap:          4.0G          0B        4.0G
+
+
+========
+
+# /home/sawamoto/fio_ve/fio /home/sawamoto/vepci/test/out/unvme-randwrite-8-16-33554432.fio (Thu 06/06/19 05:57:14 PM)
+test: (g=0): rw=randwrite, bs=(R) 32.0MiB-32.0MiB, (W) 32.0MiB-32.0MiB, (T) 32.0MiB-32.0MiB, ioengine=unvme, iodepth=16
+...
+fio-2.19-dirty
+Starting 8 threads
+aurora_init: 0x7fbc00000000-0x7fc000000000
+aurora_map: 0x70000000000-0x70004000000
+unvme_open b3:00.0/1 q=32x256 ncpus=8
+
+test: (groupid=0, jobs=8): err= 0: pid=244117: Thu Jun  6 17:57:28 2019
+  write: IOPS=60, BW=1921MiB/s (2014MB/s)(21.9GiB/11644msec)
+    slat (msec): min=3, max=143, avg=12.57, stdev=24.45
+    clat (msec): min=151, max=10292, avg=1897.90, stdev=1400.83
+     lat (msec): min=154, max=10301, avg=1910.47, stdev=1410.18
+    clat percentiles (msec):
+     |  1.00th=[  231],  5.00th=[  408], 10.00th=[  652], 20.00th=[ 1598],
+     | 30.00th=[ 1745], 40.00th=[ 1745], 50.00th=[ 1762], 60.00th=[ 1762],
+     | 70.00th=[ 1795], 80.00th=[ 1811], 90.00th=[ 2442], 95.00th=[ 3097],
+     | 99.00th=[ 9241], 99.50th=[ 9634], 99.90th=[10290], 99.95th=[10290],
+     | 99.99th=[10290]
+    lat (msec) : 250=2.15%, 500=4.43%, 750=4.29%, 1000=2.86%, 2000=72.82%
+    lat (msec) : >=2000=13.45%
+  cpu          : usr=73.47%, sys=0.00%, ctx=231, majf=0, minf=0
+  IO depths    : 1=1.1%, 2=2.3%, 4=4.6%, 8=9.2%, 16=82.8%, 32=0.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=99.4%, 8=0.0%, 16=0.6%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued rwt: total=0,699,0, short=0,0,0, dropped=0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=16
+
+Run status group 0 (all jobs):
+  WRITE: bw=1921MiB/s (2014MB/s), 1921MiB/s-1921MiB/s (2014MB/s-2014MB/s), io=21.9GiB (23.5GB), run=11644-11644msec
+
+Disk stats (read/write):
+    dm-2: ios=0/1, merge=0/0, ticks=0/0, in_queue=0, util=0.00%, aggrios=0/206, aggrmerge=0/0, aggrticks=0/85, aggrin_queue=85, aggrutil=0.54%
+  sdb: ios=0/206, merge=0/0, ticks=0/85, in_queue=85, util=0.54%
+
+
+========
+
+# /usr/bin/free -h (Thu 06/06/19 05:57:29 PM)
+              total        used        free      shared  buff/cache   available
+Mem:            93G        2.6G         79G         42M         10G         89G
+Swap:          4.0G          0B        4.0G
+
