@@ -143,7 +143,9 @@ static int unvme_check_completion(unvme_queue_t *q, int timeout, u32 *cqe_cs)
     {
         desc = desc->next;
         if (desc == q->descpend)
+        {
             FATAL("pending cid %d not found", cid);
+        }
     }
     if (err)
         desc->error = err;

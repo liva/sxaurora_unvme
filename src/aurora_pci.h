@@ -8,6 +8,7 @@
 uint64_t aurora_map(uint64_t address);
 int aurora_init();
 vfio_dma_t *aurora_mem_alloc(size_t size);
+void aurora_mem_free(vfio_dma_t *dma_ctx);
 int aurora_release();
 
 /**
@@ -24,8 +25,8 @@ inline uint32_t ve_pci_load32(uint64_t vehva)
 	asm volatile(
 		"       lhm.w   %0, 0(%1)\n"
 		"	fencem 2\n"
-			: "=r"(ret)
-			: "r"(vehva));
+		: "=r"(ret)
+		: "r"(vehva));
 	return ret;
 }
 
@@ -40,9 +41,8 @@ inline void ve_pci_store32(uint64_t vehva, uint32_t value)
 {
 	asm volatile(
 		"	fencem 1\n"
-		"       shm.w   %0, 0(%1)\n"
-			:: "r"(value), "r"(vehva));
+		"       shm.w   %0, 0(%1)\n" ::"r"(value),
+		"r"(vehva));
 }
-
 
 #endif // _AURORA_PCI_H_

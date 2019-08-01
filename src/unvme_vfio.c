@@ -50,7 +50,12 @@
 #include "aurora_pci.h"
 
 /// Print fatal error and exit
-#define FATAL(fmt, arg...)  do { ERROR(fmt, ##arg); abort(); } while (0)
+#define FATAL(fmt, arg...) \
+    do                     \
+    {                      \
+        ERROR(fmt, ##arg); \
+        abort();           \
+    } while (0)
 
 /**
  * Create a VFIO device context.
@@ -58,14 +63,14 @@
  * @param   pci         PCI device id (as %x:%x.%x format)
  * @return  device context or NULL if failure.
  */
-vfio_device_t* vfio_create(vfio_device_t* dev, int pci)
+vfio_device_t *vfio_create(vfio_device_t *dev, int pci)
 {
     // map PCI to vfio device number
     int i;
     char pciname[64];
     sprintf(pciname, "0000:%02x:%02x.%x", pci >> 16, (pci >> 8) & 0xff, pci & 0xff);
 
-/*    char path[128];
+    /*    char path[128];
     sprintf(path, "/sys/bus/pci/devices/%s/iommu_group", pciname);
     if ((i = readlink(path, path, sizeof(path))) < 0)
         FATAL("No iommu_group associated with device %s", pciname);
@@ -77,18 +82,22 @@ vfio_device_t* vfio_create(vfio_device_t* dev, int pci)
     struct vfio_device_info dev_info = { .argsz = sizeof(dev_info) };
 */
     // allocate and initialize device context
-    if (!dev) dev = zalloc(sizeof(*dev));
-    else dev->ext = 1;
+    if (!dev)
+        dev = zalloc(sizeof(*dev));
+    else
+        dev->ext = 1;
     dev->pci = pci;
- /*   dev->pagesize = sysconf(_SC_PAGESIZE);
+    /*   dev->pagesize = sysconf(_SC_PAGESIZE);
     dev->iovabase = VFIO_IOVA;
     dev->iovanext = dev->iovabase;*/
-    if (pthread_mutex_init(&dev->lock, 0)) return NULL;
+    if (pthread_mutex_init(&dev->lock, 0))
+        return NULL;
 
-    if (!aurora_init()) {
+    if (!aurora_init())
+    {
         errx(1, "aurora_init");
     }
-/*
+    /*
     // map vfio context
     if ((dev->contfd = open("/dev/vfio/vfio", O_RDWR)) < 0)
         FATAL("open /dev/vfio/vfio");
@@ -167,7 +176,7 @@ vfio_device_t* vfio_create(vfio_device_t* dev, int pci)
         }
     }*/
 
-/*    for (i = 0; i < dev_info.num_irqs; i++) {
+    /*    for (i = 0; i < dev_info.num_irqs; i++) {
         struct vfio_irq_info irq = { .argsz = sizeof(irq), .index = i };
 
         if (ioctl(dev->fd, VFIO_DEVICE_GET_IRQ_INFO, &irq)) continue;
@@ -177,7 +186,7 @@ vfio_device_t* vfio_create(vfio_device_t* dev, int pci)
             FATAL("VFIO_DEVICE_GET_IRQ_INFO MSIX count %d != %d", irq.count, dev->msixsize);
     }
 */
-/*#ifdef  UNVME_IDENTITY_MAP_DMA
+    /*#ifdef  UNVME_IDENTITY_MAP_DMA
     // Set up mask to support identity IOVA map option
     struct vfio_iommu_type1_dma_map map = {
         .argsz = sizeof(map),
@@ -209,19 +218,20 @@ vfio_device_t* vfio_create(vfio_device_t* dev, int pci)
     DEBUG_FN("iovamask=%#llx", dev->iovamask);
 #endif*/
 
-    return (vfio_device_t*)dev;
+    return (vfio_device_t *)dev;
 }
 
 /**
  * Delete a VFIO device context.
  * @param   dev         device context
  */
-void vfio_delete(vfio_device_t* dev)
+void vfio_delete(vfio_device_t *dev)
 {
-    if (!dev) return;
+    if (!dev)
+        return;
     DEBUG_FN("%x", dev->pci);
 
-/*    // free all memory associated with the device
+    /*    // free all memory associated with the device
     while (dev->memlist) vfio_mem_free(dev->memlist);
 
     if (dev->fd) {
@@ -238,14 +248,15 @@ void vfio_delete(vfio_device_t* dev)
     }
     */
 
-    if (!aurora_release()) {
+    if (!aurora_release())
+    {
         errx(1, "aurora_release");
     }
 
     pthread_mutex_destroy(&dev->lock);
-    if (!dev->ext) free(dev);
+    if (!dev->ext)
+        free(dev);
 }
-
 
 /**
  * Allocate and return a DMA buffer.
@@ -253,11 +264,11 @@ void vfio_delete(vfio_device_t* dev)
  * @param   size        allocation size
  * @return  0 if ok else -1.
  */
-vfio_dma_t* vfio_dma_alloc(vfio_device_t* dev, size_t size)
+vfio_dma_t *vfio_dma_alloc(vfio_device_t *dev, size_t size)
 {
-    pthread_mutex_lock(&dev->lock);
+    //    pthread_mutex_lock(&dev->lock);
     vfio_dma_t *mem = aurora_mem_alloc(size);
-    pthread_mutex_unlock(&dev->lock);
+    //    pthread_mutex_unlock(&dev->lock);
     return mem;
 }
 
@@ -266,8 +277,8 @@ vfio_dma_t* vfio_dma_alloc(vfio_device_t* dev, size_t size)
  * @param   dma         memory pointer
  * @return  0 if ok else -1.
  */
-int vfio_dma_free(vfio_dma_t* dma)
+int vfio_dma_free(vfio_dma_t *dma)
 {
-    free(dma);
+    aurora_mem_free(dma);
     return 0;
 }

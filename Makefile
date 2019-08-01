@@ -50,7 +50,7 @@ vepci: test.c
 
 clean:
 	-rm unvme src/*.o src/*.a ioengine/*.o ioengine/unvme_fio
-
+# echo "144d a808" | sudo tee /sys/bus/pci/drivers/uio_pci_generic/new_id
 uio:
 	echo '0000:b3:00.0' | sudo tee /sys/bus/pci/drivers/nvme/unbind
 	echo '0000:b3:00.0' | sudo tee /sys/bus/pci/drivers/uio_pci_generic/bind
