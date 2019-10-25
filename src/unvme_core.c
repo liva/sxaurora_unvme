@@ -215,6 +215,17 @@ static u16 unvme_get_cid(unvme_desc_t *desc)
     return cid;
 }
 
+#include <stdint.h>
+extern uint64_t tmp_var;
+static inline uint64_t ve_get()
+{
+    uint64_t ret;
+    void *vehva = ((void *)0x000000001000);
+    asm volatile("lhm.l %0,0(%1)"
+                 : "=r"(ret)
+                 : "r"(vehva));
+    return ((uint64_t)1000 * ret) / 800;
+}
 /**
  * Lookup DMA address associated with the user buffer.
  * @param   ns          namespace handle
@@ -224,29 +235,7 @@ static u16 unvme_get_cid(unvme_desc_t *desc)
  */
 static u64 unvme_map_dma(const unvme_ns_t *ns, void *buf, u64 bufsz)
 {
-    unvme_device_t *dev = ((unvme_session_t *)ns->ses)->dev;
-#ifdef UNVME_IDENTITY_MAP_DMA
-    u64 addr = (u64)buf & dev->vfiodev.iovamask;
-#else
-    vfio_dma_t *dma = NULL;
-    unvme_lockr(&dev->iomem.lock);
-    int i;
-    for (i = 0; i < dev->iomem.count; i++)
-    {
-        dma = dev->iomem.map[i];
-        if (dma->buf <= buf && buf < (dma->buf + dma->size))
-            break;
-    }
-    unvme_unlockr(&dev->iomem.lock);
-    if (i == dev->iomem.count)
-        FATAL("invalid I/O buffer address");
-    u64 addr = dma->addr + (u64)(buf - dma->buf);
-    if ((addr + bufsz) > (dma->addr + dma->size))
-        FATAL("buffer overrun");
-#endif
-    //if ((addr & (ns->blocksize - 1)) != 0)
-    //    FATAL("unaligned buffer address");
-    return addr;
+    return aurora_resolve_addr(buf);
 }
 
 /**
@@ -450,7 +439,6 @@ static void unvme_ns_init(unvme_ns_t *ns, int nsid)
     if (nvme_acmd_identify(&dev->nvmedev, nsid, dma->addr, 0))
         FATAL("nvme_acmd_identify %d failed", nsid);
     nvme_identify_ns_t *idns = (nvme_identify_ns_t *)dma->buf;
-    printf(">>>%p %d %d\n", dma->buf, nsid, idns->ncap);
     ns->blockcount = idns->ncap;
     ns->blockshift = idns->lbaf[idns->flbas & 0xF].lbads;
     ns->blocksize = 1 << ns->blockshift;
@@ -647,15 +635,15 @@ int unvme_do_close(const unvme_ns_t *ns)
  * @param   size        buffer size
  * @return  the allocated buffer or NULL if failure.
  */
-void *unvme_do_alloc(const unvme_ns_t *ns, u64 size)
+vfio_dma_t *unvme_do_alloc(const unvme_ns_t *ns, u64 size)
 {
     DEBUG_FN("%s %#lx", ns->device, size);
     unvme_device_t *dev = ((unvme_session_t *)ns->ses)->dev;
-    unvme_iomem_t *iomem = &dev->iomem;
+    //unvme_iomem_t *iomem = &dev->iomem;
     void *buf = NULL;
-    unvme_lockw(&iomem->lock);
+    //unvme_lockw(&iomem->lock);
     vfio_dma_t *dma = vfio_dma_alloc(&dev->vfiodev, size);
-    if (dma)
+    /*if (dma)
     {
         if (iomem->count == iomem->size)
         {
@@ -665,8 +653,8 @@ void *unvme_do_alloc(const unvme_ns_t *ns, u64 size)
         iomem->map[iomem->count++] = dma;
         buf = dma->buf;
     }
-    unvme_unlockw(&iomem->lock);
-    return buf;
+    unvme_unlockw(&iomem->lock);*/
+    return dma;
 }
 
 /**
@@ -675,11 +663,12 @@ void *unvme_do_alloc(const unvme_ns_t *ns, u64 size)
  * @param   buf         buffer pointer
  * @return  0 if ok else -1.
  */
-int unvme_do_free(const unvme_ns_t *ns, void *buf)
+int unvme_do_free(const unvme_ns_t *ns, vfio_dma_t *dma)
 {
     DEBUG_FN("%s %p", ns->device, buf);
     unvme_device_t *dev = ((unvme_session_t *)ns->ses)->dev;
-    unvme_iomem_t *iomem = &dev->iomem;
+    vfio_dma_free(dma);
+    /*unvme_iomem_t *iomem = &dev->iomem;
 
     unvme_lockw(&iomem->lock);
     int i;
@@ -695,8 +684,8 @@ int unvme_do_free(const unvme_ns_t *ns, void *buf)
             return 0;
         }
     }
-    unvme_unlockw(&iomem->lock);
-    return -1;
+    unvme_unlockw(&iomem->lock);*/
+    return 0;
 }
 
 /**

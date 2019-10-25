@@ -31,16 +31,16 @@
 
 SHELL:=/bin/bash
 
-CC=/opt/nec/ve/LLVM-VE-RV/bin/clang
-CPP=/opt/nec/ve/LLVM-VE-RV/bin/clang
-AR=/opt/nec/ve/LLVM-VE-RV/bin/llvm-ar
+CC=/opt/nec/nosupport/llvm-ve/bin/clang
+CPP=/opt/nec/nosupport/llvm-ve/bin/clang++
+AR=/opt/nec/nosupport/llvm-ve/bin/llvm-ar
 LD=/opt/nec/ve/bin/ld
 
 # Default compilation flags
-CFLAGS?=-O2 -fno-slp-vectorize -mllvm -llvm-loopvec=false -Xclang -load -Xclang libRV.so -mllvm -rv --target=ve-linux --std=gnu99 -Isrc -lsysve
+CFLAGS?=-O2 --target=ve-linux --std=gnu99 -Isrc -lsysve
 CFLAGS+=-Wall -fPIC
 CPPFLAGS+=-D_GNU_SOURCE
-LDFLAGS=-fno-slp-vectorize -mllvm -llvm-loopvec=false -Xclang -load -Xclang libRV.so -mllvm -rv --target=ve-linux --std=gnu99 -Isrc -lsysve
+LDFLAGS=--target=ve-linux --std=gnu99 -Isrc -lsysve
 
 # To turn on debug message logging
 #CPPFLAGS+=-DUNVME_DEBUG
