@@ -1,8 +1,9 @@
 #!/bin/sh -xe
+docker build docker -t build-base:develop
 docker rm -f unvme || :
-docker run --rm -it -v $PWD:$PWD -w $PWD veos:develop rm -f src/libunvme.a
-docker run --rm -it -v $PWD:$PWD -w $PWD veos:develop make -C src
-docker run -d --name unvme -it -v $PWD:$PWD -w $PWD veos:develop sh
+docker run --rm -it -v $PWD:$PWD -w $PWD build-base:develop rm -f src/libunvme.a
+docker run --rm -it -v $PWD:$PWD -w $PWD build-base:develop make -C src
+docker run -d --name unvme -it -v $PWD:$PWD -w $PWD build-base:develop sh
 #docker exec -it unvme mkdir -p workdir
 #docker exec -it unvme mkdir -p workdir/unvme
 #docker exec -it -w $PWD/workdir/unvme unvme /opt/nec/nosupport/llvm-ve/bin/llvm-ar -x ../../src/libunvme.a

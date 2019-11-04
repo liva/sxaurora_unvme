@@ -49,32 +49,17 @@ const unvme_ns_t *unvme_open(const char *pciname)
 //#define UNVME_MEM
 
 #ifdef UNVME_MEM
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-static int existFile(const char *path)
-{
-    struct stat st;
-
-    if (stat(path, &st) != 0)
-    {
-        return 0;
-    }
-
-    return (st.st_mode & S_IFMT) == S_IFCHR;
-}
-
 #include <stdatomic.h>
 #include <sys/mman.h>
 #include <sys/types.h>
-#define PCIATB_PAGESIZE (1UL << 26)
-#define MAX_SIZE (PCIATB_PAGESIZE * 256)
 static atomic_uint lock = ATOMIC_VAR_INIT(0);
 
 static size_t kStorageSize = 10L * 1024 * 1024 * 1024; // 10GB
 static void *mem_buf;
-static void *vemva;
-static size_t alloc_offset = 0;
 const unvme_ns_t *unvme_openq(const char *pciname, int qcount, int qsize)
 {
     unvme_ns_t *ns = (unvme_ns_t *)malloc(sizeof(unvme_ns_t));
@@ -82,40 +67,38 @@ const unvme_ns_t *unvme_openq(const char *pciname, int qcount, int qsize)
     ns->blocksize = 512;
     ns->maxqcount = 4;
 
-    vemva = mmap(NULL, MAX_SIZE, PROT_READ | PROT_WRITE,
-                 MAP_ANONYMOUS | MAP_SHARED | MAP_64MB, -1, 0);
-
     mem_buf = malloc(kStorageSize);
 
-    if (existFile("/home/sawamoto/ssd_mem"))
+    FILE *fp = fopen("/home/sawamoto/ssd_mem", "rb");
+    if (fp == NULL)
     {
-        FILE *fp = fopen("/home/sawamoto/ssd_mem", "r");
-        if (fp == NULL)
-        {
-            fprintf(stderr, "failed to fopen mem file");
-            return NULL;
-        }
-        fseek(fp, 0, SEEK_END);
-        size_t fsize = ftell(fp);
-        assert(fsize == kStorageSize);
-        fseek(fp, 0, SEEK_SET);
-
-        void *buf = mem_buf;
-        while (fsize != 0)
-        {
-            size_t n = fread(buf, fsize, 1, fp);
-            buf += n;
-            fsize -= n;
-        }
-        fclose(fp);
+        fprintf(stderr, "failed to fopen mem file");
+        return NULL;
     }
+    fseek(fp, 0, SEEK_END);
+    size_t fsize = ftell(fp);
+    if (fsize != kStorageSize)
+    {
+        abort();
+    }
+    fseek(fp, 0, SEEK_SET);
+
+    void *buf = mem_buf;
+    while (fsize != 0)
+    {
+        size_t n = fread(buf, 1, fsize, fp);
+        buf += n;
+        fsize -= n;
+    }
+    fclose(fp);
+    printf("UNVME_MEM: read from file\n");
     return ns;
 }
 
 int unvme_close(const unvme_ns_t *ns)
 {
-    FILE *fp = fopen("/home/sawamoto/ssd_mem", "w");
-    fwrite(mem_buf, kStorageSize, 1, fp);
+    FILE *fp = fopen("/home/sawamoto/ssd_mem", "wb");
+    fwrite(mem_buf, 1, kStorageSize, fp);
     fclose(fp);
     return 0;
 }
@@ -131,45 +114,47 @@ vfio_dma_t *unvme_alloc(const unvme_ns_t *ns, u64 size)
                          : "memory");
     }
 
-    if (alloc_offset + size < MAX_SIZE)
-    {
-        vfio_dma_t *dma = malloc(sizeof(vfio_dma_t));
-        dma->buf = vemva + alloc_offset;
-        memset(dma->buf, 0, size);
-        alloc_offset += size;
+    vfio_dma_t *dma = malloc(sizeof(vfio_dma_t));
+    dma->buf = malloc(size);
+    dma->size = size;
+    memset(dma->buf, 0, size);
 
-        lock = ATOMIC_VAR_INIT(0);
-        return dma;
-    }
-
-    fprintf(stderr, "UNVME_ERROR: memory exhausted\n");
-    fflush(stderr);
-    abort();
-    return NULL;
+    lock = ATOMIC_VAR_INIT(0);
+    return dma;
 }
 
 int unvme_free(const unvme_ns_t *ns, vfio_dma_t *dma)
 {
+    free(dma->buf);
+    free(dma);
     return 0;
 }
 
 inline unvme_iod_t unvme_acmd(const unvme_ns_t *ns, int qid, int opc, int nsid,
                               void *buf, u64 bufsz, u32 cdw10_15[6])
 {
-    return 1;
+    return (unvme_iod_t)1;
 }
 
 inline unvme_iod_t unvme_aread(const unvme_ns_t *ns, int qid, void *buf, u64 slba, u32 nlb)
 {
+    if (slba + nlb > kStorageSize / 512)
+    {
+        abort();
+    }
     memcpy(buf, mem_buf + slba * ns->blocksize, nlb * ns->blocksize);
-    return 1;
+    return (unvme_iod_t)1;
 }
 
 inline unvme_iod_t unvme_awrite(const unvme_ns_t *ns, int qid,
                                 const void *buf, u64 slba, u32 nlb)
 {
+    if (slba + nlb > kStorageSize / 512)
+    {
+        abort();
+    }
     memcpy(mem_buf + slba * ns->blocksize, buf, nlb * ns->blocksize);
-    return 1;
+    return (unvme_iod_t)1;
 }
 
 inline int unvme_apoll(unvme_iod_t iod, int timeout)

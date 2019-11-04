@@ -42,7 +42,7 @@
 #include <time.h>
 #include <err.h>
 #include <fcntl.h>
-#include <veaio.h>
+//#include <veaio.h>
 
 #include "unvme.h"
 
@@ -89,7 +89,7 @@ static inline uint64_t rdtsc_second()
 }
 
 void vepci(char *pciname, int ratio, int verbose);
-void aio(char *pciname, int ratio, int verbose);
+void posix(char *pciname, int ratio, int verbose);
 
 void vepci_test(char *pciname, int ratio, int verbose);
 
@@ -99,12 +99,12 @@ void vepci_test(char *pciname, int ratio, int verbose);
 int main(int argc, char **argv)
 {
     const char *usage = "Usage: %s [OPTION]... PCINAME\n\
-           -a         aio\n\
+           -p         posix\n\
            -v         verbose\n\
            -r RATIO   max blocks per I/O ratio (default 4)\n\
            PCINAME    PCI device name (as 01:00.0[/1] format)";
 
-    int opt, ratio = 4, verbose = 0, aio_flag = 0;
+    int opt, ratio = 4, verbose = 0, posix_flag = 0;
     const char *prog = strrchr(argv[0], '/');
     prog = prog ? prog + 1 : argv[0];
 
@@ -120,8 +120,8 @@ int main(int argc, char **argv)
         case 'v':
             verbose = 1;
             break;
-        case 'a':
-            aio_flag = 1;
+        case 'p':
+            posix_flag = 1;
             break;
         default:
             warnx(usage, prog);
@@ -135,14 +135,14 @@ int main(int argc, char **argv)
     }
     char *pciname = argv[optind];
 
-    if (aio_flag == 0)
+    if (posix_flag == 0)
     {
         vepci_test(pciname, ratio, verbose);
         //        vepci(pciname, ratio, verbose);
     }
     else
     {
-        aio(pciname, ratio, verbose);
+        posix(pciname, ratio, verbose);
     }
 
     return 0;
@@ -362,6 +362,7 @@ void vepci(char *pciname, int ratio, int verbose)
     printf("API TEST COMPLETE (%ld clock)\n", t4 - t3 + t2 - t1);
 }
 
+#if 0
 void aio(char *pciname, int ratio, int verbose)
 {
     printf("API TEST BEGIN\n");
@@ -491,6 +492,7 @@ void aio(char *pciname, int ratio, int verbose)
 
     printf("API TEST COMPLETE (%ld clock)\n", t4 - t3 + t2 - t1);
 }
+#endif
 
 void posix(char *pciname, int ratio, int verbose)
 {
