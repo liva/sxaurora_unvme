@@ -156,7 +156,9 @@ typedef struct _unvme_session
 unvme_ns_t *unvme_do_open(int pci, int nsid, int qcount, int qsize);
 int unvme_do_close(const unvme_ns_t *ns);
 vfio_dma_t *unvme_do_alloc(const unvme_ns_t *ns, u64 size);
+void unvme_do_alloc2(const unvme_ns_t *ns, vfio_dma_t *dma, u64 size);
 int unvme_do_free(const unvme_ns_t *ses, vfio_dma_t *dma);
+int unvme_do_free2(const unvme_ns_t *ses, vfio_dma_t *dma);
 int unvme_do_poll(unvme_desc_t *desc, int sec, u32 *cqe_cs);
 unvme_desc_t *unvme_do_cmd(const unvme_ns_t *ns, int qid, int opc, int nsid, void *buf, u64 bufsz, u32 cdw10_15[6]);
 unvme_desc_t *unvme_do_rw(const unvme_ns_t *ns, int qid, int opc, void *buf, u64 slba, u32 nlb);

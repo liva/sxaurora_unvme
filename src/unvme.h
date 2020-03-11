@@ -103,7 +103,9 @@ const unvme_ns_t *unvme_openq(const char *pciname, int qcount, int qsize);
 int unvme_close(const unvme_ns_t *ns);
 
 vfio_dma_t *unvme_alloc(const unvme_ns_t *ns, u64 size);
+void unvme_alloc2(const unvme_ns_t *ns, vfio_dma_t *dma, u64 size);
 int unvme_free(const unvme_ns_t *ns, vfio_dma_t *dma);
+int unvme_free2(const unvme_ns_t *ns, vfio_dma_t *dma);
 
 int unvme_write(const unvme_ns_t *ns, int qid, const void *buf, u64 slba, u32 nlb);
 int unvme_read(const unvme_ns_t *ns, int qid, void *buf, u64 slba, u32 nlb);

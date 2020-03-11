@@ -215,6 +215,11 @@ vfio_dma_t *unvme_alloc(const unvme_ns_t *ns, u64 size)
     return unvme_do_alloc(ns, size);
 }
 
+void unvme_alloc2(const unvme_ns_t *ns, vfio_dma_t *dma, u64 size)
+{
+    return unvme_do_alloc2(ns, dma, size);
+}
+
 /**
  * Free an I/O buffer associated with a session.
  * @param   ns          namespace handle
@@ -224,6 +229,11 @@ vfio_dma_t *unvme_alloc(const unvme_ns_t *ns, u64 size)
 int unvme_free(const unvme_ns_t *ns, vfio_dma_t *dma)
 {
     return unvme_do_free(ns, dma);
+}
+
+int unvme_free2(const unvme_ns_t *ns, vfio_dma_t *dma)
+{
+    return unvme_do_free2(ns, dma);
 }
 
 /**

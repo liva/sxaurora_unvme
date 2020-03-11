@@ -215,17 +215,6 @@ static u16 unvme_get_cid(unvme_desc_t *desc)
     return cid;
 }
 
-#include <stdint.h>
-extern uint64_t tmp_var;
-static inline uint64_t ve_get()
-{
-    uint64_t ret;
-    void *vehva = ((void *)0x000000001000);
-    asm volatile("lhm.l %0,0(%1)"
-                 : "=r"(ret)
-                 : "r"(vehva));
-    return ((uint64_t)1000 * ret) / 800;
-}
 /**
  * Lookup DMA address associated with the user buffer.
  * @param   ns          namespace handle
@@ -638,11 +627,11 @@ int unvme_do_close(const unvme_ns_t *ns)
 vfio_dma_t *unvme_do_alloc(const unvme_ns_t *ns, u64 size)
 {
     DEBUG_FN("%s %#lx", ns->device, size);
-    unvme_device_t *dev = ((unvme_session_t *)ns->ses)->dev;
+    //unvme_device_t *dev = ((unvme_session_t *)ns->ses)->dev;
     //unvme_iomem_t *iomem = &dev->iomem;
-    void *buf = NULL;
     //unvme_lockw(&iomem->lock);
-    vfio_dma_t *dma = vfio_dma_alloc(&dev->vfiodev, size);
+    vfio_dma_t *dma = malloc(sizeof(vfio_dma_t));
+    aurora_mem_alloc(dma, size);
     /*if (dma)
     {
         if (iomem->count == iomem->size)
@@ -657,6 +646,13 @@ vfio_dma_t *unvme_do_alloc(const unvme_ns_t *ns, u64 size)
     return dma;
 }
 
+void unvme_do_alloc2(const unvme_ns_t *ns, vfio_dma_t *dma, u64 size)
+{
+    DEBUG_FN("%s %#lx", ns->device, size);
+    aurora_mem_alloc(dma, size);
+    return;
+}
+
 /**
  * Free an I/O buffer.
  * @param   ns          namespace handle
@@ -666,8 +662,9 @@ vfio_dma_t *unvme_do_alloc(const unvme_ns_t *ns, u64 size)
 int unvme_do_free(const unvme_ns_t *ns, vfio_dma_t *dma)
 {
     DEBUG_FN("%s %p", ns->device, buf);
-    unvme_device_t *dev = ((unvme_session_t *)ns->ses)->dev;
-    vfio_dma_free(dma);
+    //unvme_device_t *dev = ((unvme_session_t *)ns->ses)->dev;
+    aurora_mem_free(dma);
+    free(dma);
     /*unvme_iomem_t *iomem = &dev->iomem;
 
     unvme_lockw(&iomem->lock);
@@ -685,6 +682,14 @@ int unvme_do_free(const unvme_ns_t *ns, vfio_dma_t *dma)
         }
     }
     unvme_unlockw(&iomem->lock);*/
+    return 0;
+}
+
+int unvme_do_free2(const unvme_ns_t *ns, vfio_dma_t *dma)
+{
+    DEBUG_FN("%s %p", ns->device, buf);
+    //unvme_device_t *dev = ((unvme_session_t *)ns->ses)->dev;
+    aurora_mem_free(dma);
     return 0;
 }
 

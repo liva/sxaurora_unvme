@@ -44,6 +44,7 @@
 #include <pthread.h>
 #include <dirent.h>
 #include <errno.h>
+#include <err.h>
 
 #include "unvme_vfio.h"
 #include "unvme_log.h"
@@ -66,7 +67,7 @@
 vfio_device_t *vfio_create(vfio_device_t *dev, int pci)
 {
     // map PCI to vfio device number
-    int i;
+    //int i;
     char pciname[64];
     sprintf(pciname, "0000:%02x:%02x.%x", pci >> 16, (pci >> 8) & 0xff, pci & 0xff);
 
@@ -267,7 +268,9 @@ void vfio_delete(vfio_device_t *dev)
 vfio_dma_t *vfio_dma_alloc(vfio_device_t *dev, size_t size)
 {
     //    pthread_mutex_lock(&dev->lock);
-    vfio_dma_t *mem = aurora_mem_alloc(size);
+    vfio_dma_t *mem = malloc(sizeof(vfio_dma_t));
+    aurora_mem_alloc(mem, size);
+    memset(mem->buf, 0, size);
     //    pthread_mutex_unlock(&dev->lock);
     return mem;
 }
@@ -280,5 +283,6 @@ vfio_dma_t *vfio_dma_alloc(vfio_device_t *dev, size_t size)
 int vfio_dma_free(vfio_dma_t *dma)
 {
     aurora_mem_free(dma);
+    free(dma);
     return 0;
 }

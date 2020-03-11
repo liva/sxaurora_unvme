@@ -9,7 +9,7 @@
 uint64_t aurora_map(uint64_t address);
 uint64_t aurora_resolve_addr(void *buf);
 int aurora_init();
-vfio_dma_t *aurora_mem_alloc(size_t size);
+void aurora_mem_alloc(vfio_dma_t *dma, size_t size);
 void aurora_mem_free(vfio_dma_t *dma_ctx);
 int aurora_release();
 
