@@ -43,7 +43,7 @@
 
 #define SIZE_64M (1UL << 26)
 #define PCIATB_PAGESIZE (1UL << 26)
-#define MAX_SIZE (PCIATB_PAGESIZE * 512)
+#define MAX_SIZE (PCIATB_PAGESIZE * 16/*512*/)
 
 static uint64_t vehva = 0;
 static atomic_uint lock = ATOMIC_VAR_INIT(0);
@@ -87,15 +87,26 @@ uint64_t aurora_map(uint64_t address)
 static uint64_t pci_vhsaa;
 static void *vemva;
 
+static void vhsa_release() {
+  FILE *fp;
+  uint64_t pci_vhsaa, vhsa_size;
+  fp = fopen("/home/sawamoto/.vhsaa_registration_log", "r");
+  
+  while(fscanf(fp, "%lx,%lx", &pci_vhsaa, &vhsa_size) != EOF ) {
+    int ret = ve_unregister_mem_from_pci(pci_vhsaa, vhsa_size);
+    if (ret) {
+      perror("Fail to ve_unregister_mem_from_pci()");
+    } else {
+      printf("Successfully unregistered from %lx (size: %lx).\n", pci_vhsaa, vhsa_size);
+    }
+  }
+  fclose(fp);
+  truncate("/home/sawamoto/.vhsaa_registration_log", 0);
+}
+
 int aurora_release()
 {
         int ret;
-        ret = ve_unregister_mem_from_pci(pci_vhsaa, MAX_SIZE);
-        if (ret)
-        {
-                perror("Fail to ve_unregister_mem_from_pci()");
-                return 0;
-        }
         if (vehva != 0)
         {
                 ret = ve_unregister_pci_from_vehva(vehva, SIZE_64M);
@@ -106,15 +117,19 @@ int aurora_release()
                 }
         }
         munmap(vemva, MAX_SIZE);
+        vhsa_release();
         return 1;
 }
 
 void buddy_init(void *addr, size_t size);
 int aurora_init()
 {
-
+  uint64_t vhsa_size = MAX_SIZE;
+  
+        vhsa_release();
+        
         // these VE memory should be used for data buffer
-        vemva = mmap(NULL, MAX_SIZE, PROT_READ | PROT_WRITE,
+        vemva = mmap(NULL, vhsa_size, PROT_READ | PROT_WRITE,
                      MAP_ANONYMOUS | MAP_SHARED | MAP_64MB, -1, 0);
         if (NULL == vemva)
         {
@@ -122,14 +137,20 @@ int aurora_init()
                 return 0;
         }
 
-        pci_vhsaa = ve_register_mem_to_pci(vemva, MAX_SIZE);
+        pci_vhsaa = ve_register_mem_to_pci(vemva, vhsa_size);
         if (pci_vhsaa == (uint64_t)-1)
         {
-                perror("Fail to ve_register_mem_to_pci()");
+          perror("Fail to ve_register_mem_to_pci()");
                 return 0;
+        } else {
+          printf("registered at %lx (size: %lx).\n", pci_vhsaa, vhsa_size);
+          FILE *fp;
+          fp = fopen("/home/sawamoto/.vhsaa_registration_log", "a");
+          fprintf(fp, "%lx,%lx\n", pci_vhsaa, vhsa_size);
+          fclose(fp);
         }
 
-        buddy_init(vemva, MAX_SIZE);
+        buddy_init(vemva, vhsa_size);
         return 1;
 }
 
