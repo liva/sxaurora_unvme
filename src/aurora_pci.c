@@ -43,7 +43,7 @@
 
 #define SIZE_64M (1UL << 26)
 #define PCIATB_PAGESIZE (1UL << 26)
-#define MAX_SIZE (PCIATB_PAGESIZE * 16/*512*/)
+#define MAX_SIZE (PCIATB_PAGESIZE * 512)
 
 static uint64_t vehva = 0;
 static atomic_uint lock = ATOMIC_VAR_INIT(0);

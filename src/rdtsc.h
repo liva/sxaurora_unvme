@@ -91,9 +91,11 @@ static inline uint64_t rdtsc(void)
     return tsc.val;*/
     uint64_t ret;
     void *vehva = ((void *)0x000000001000);
+    asm volatile("":::"memory");
     asm volatile("lhm.l %0,0(%1)"
                  : "=r"(ret)
                  : "r"(vehva));
+    asm volatile("":::"memory");
     // the "800" is due to the base frequency of Tsubasa
     return ((uint64_t)1000 * ret) / 800;
 }

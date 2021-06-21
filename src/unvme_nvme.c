@@ -715,7 +715,7 @@ nvme_device_t *nvme_create(nvme_device_t *dev, int mapfd)
         dev->ext = 1;
     dev->rdtsec = rdtsc_second();
 
-    dev->reg = (nvme_controller_reg_t *)aurora_map(0xfbe00000);
+    dev->reg = (nvme_controller_reg_t *)aurora_map(0x9d110000);
     if (dev->reg == MAP_FAILED)
     {
         ERROR("mmap: %s", strerror(errno));
